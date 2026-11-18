@@ -1,0 +1,6 @@
+{
+  "name": "claude-follow-ups",
+  "owner": { "name": "Noctiluque Studio" },
+  "description": "Noctiluque Studio tools for Claude Code.",
+  "plugins": [{ "name": "follow-ups", "source": "./" }]
+}
