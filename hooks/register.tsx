@@ -13,6 +13,7 @@ const PANE = 'follow-ups'
 const TITLE = 'To do & questions'
 const items = atom({ plugin: 'follow-ups', key: 'items' } as const, [], { shape: 'items-1' })
 const isBandHidden = atom({ plugin: 'follow-ups', key: 'isBandHidden' } as const, false)
+const isDoneOpen = atom({ plugin: 'follow-ups', key: 'isDoneOpen' } as const, false)
 
 // The tool's own fields sit on the event itself, beside `tool` and `tool_use_id`.
 const args = (e: unknown) => e as Record<string, unknown>
@@ -185,73 +186,108 @@ export const register: Register = on => {
 }
 
 async function draw($: any, e: any, isBand: boolean) {
-    const { Box, Text, Button, Input } = $.ui.resolve(e)
-    const list: Item[] = await read($, items)
-    const todos = list.filter(i => i.kind === 'todo')
-    const openTodos = todos.filter(i => !i.isDone)
-    const doneTodos = todos.filter(i => i.isDone)
-    const openQs = list.filter(i => i.kind === 'question' && !i.isDone)
-    const doneQs = list.filter(i => i.kind === 'question' && i.isDone)
+  const { Box, Text, Button, Input } = $.ui.resolve(e)
+  const list: Item[] = await read($, items)
+  const showDone = await read($, isDoneOpen)
+  const openTodos = list.filter(i => i.kind === 'todo' && !i.isDone)
+  const openQs = list.filter(i => i.kind === 'question' && !i.isDone)
+  const done = list.filter(i => i.isDone)
 
-    const toggle = (id: string) => update($, items, (l: Item[]) => l.map(i => (i.id === id ? { ...i, isDone: !i.isDone, doneAt: i.isDone ? undefined : now() } : i)))
-    const answer = async (q: Item, value: string) => {
-      const text = value.trim()
-      if (!text) return
-      await update($, items, (l: Item[]) => l.map(i => (i.id === q.id ? { ...i, answer: text, isDone: true, doneAt: now() } : i)))
-      void $.prompt.submit({ text: `Answer to ${q.id} ("${q.text}"): ${text}` })
-    }
+  const toggle = (id: string) => update($, items, (l: Item[]) => l.map(i => (i.id === id ? { ...i, isDone: !i.isDone, doneAt: i.isDone ? undefined : now() } : i)))
+  const answer = async (q: Item, value: string) => {
+    const text = value.trim()
+    if (!text) return
+    await update($, items, (l: Item[]) => l.map(i => (i.id === q.id ? { ...i, answer: text, isDone: true, doneAt: now() } : i)))
+    void $.prompt.submit({ text: `Answer to ${q.id} ("${q.text}"): ${text}` })
+  }
 
-    return (
-      <Box flexDirection="column" gap={1}>
-        {isBand && (
-          <Box>
-            <Text dimColor>{TITLE} </Text>
-            <Button key="band-hide" label="Hide" plain onPress={() => update($, isBandHidden, () => true)} />
-          </Box>
-        )}
-        <Box flexDirection="column">
-          <Text bold>To do{openTodos.length ? ` (${openTodos.length})` : ''}</Text>
-          {openTodos.length === 0 && <Text dimColor>Nothing for you right now.</Text>}
-          {openTodos.map(i => (
-            <Box key={i.id} flexDirection="column">
-              <Button key={`t-${i.id}`} plain onPress={() => toggle(i.id)}>☐ {i.text}</Button>
-              {i.detail && <Text dimColor>{i.detail}</Text>}
-            </Box>
+  const heading = (label: string, count: number) => (
+    <Box flexDirection="row" gap="sm" alignItems="center">
+      <Text size="heading" weight="semibold">{label}</Text>
+      {count > 0 && <Text color="claude" weight="semibold">{String(count)}</Text>}
+    </Box>
+  )
+
+  const question = (q: Item) => (
+    <Box key={`card-${q.id}`} flexDirection="column" gap="sm" padding="md" borderStyle="round" borderColor="subtle">
+      <Text size="caption" color="inactive">{q.id}</Text>
+      <Text weight="medium">{q.text}</Text>
+      {q.detail && <Text size="footnote" color="inactive">{q.detail}</Text>}
+      {q.options && (
+        <Box flexDirection="row" flexWrap="wrap" gap="sm">
+          {q.options.map((o, n) => (
+            <Button key={`o-${q.id}-${n}`} variant={o === q.recommended ? 'primary' : 'secondary'} onPress={() => answer(q, o)}>{o}</Button>
           ))}
         </Box>
+      )}
+      {q.recommended && <Text size="caption" color="inactive">My pick: {q.recommended}</Text>}
+      <Input key={`a-${q.id}`} placeholder={q.options ? 'Or type your own answer' : 'Type your answer'} submitLabel="Send" onSubmit={(value: string) => answer(q, value)} />
+    </Box>
+  )
 
-        <Box flexDirection="column">
-          <Text bold>Questions{openQs.length ? ` (${openQs.length})` : ''}</Text>
-          {openQs.length === 0 && <Text dimColor>No question waiting.</Text>}
-          {openQs.map(q => (
-            <Box key={q.id} flexDirection="column">
-              <Text>{q.id}. {q.text}</Text>
-              {q.detail && <Text dimColor>{q.detail}</Text>}
-              {q.options && (
-                <Box flexDirection="column">
-                  {q.options.map((o, n) => (
-                    <Button key={`o-${q.id}-${n}`} variant={o === q.recommended ? 'primary' : 'secondary'} onPress={() => answer(q, o)}>
-                      {o}{o === q.recommended ? ' (my pick)' : ''}
-                    </Button>
-                  ))}
-                </Box>
-              )}
-              <Input key={`a-${q.id}`} placeholder={q.options ? 'Or type your answer' : 'Type your answer'} submitLabel="Send" onSubmit={value => answer(q, value)} />
-            </Box>
-          ))}
+  const todo = (i: Item) => (
+    <Box key={`row-${i.id}`} flexDirection="column" gap="xs">
+      <Button key={`t-${i.id}`} plain onPress={() => toggle(i.id)}>
+        <Text color="claude">○  </Text><Text>{i.text}</Text>
+      </Button>
+      {i.detail && (
+        <Box paddingLeft={3}>
+          <Text size="footnote" color="inactive">{i.detail}</Text>
         </Box>
+      )}
+    </Box>
+  )
 
-        {!isBand && (doneTodos.length > 0 || doneQs.length > 0) && (
-          <Box flexDirection="column">
-            <Text bold dimColor>Done ({doneTodos.length + doneQs.length})</Text>
-            {doneTodos.map(i => (
-              <Button key={`d-${i.id}`} plain dimColor onPress={() => toggle(i.id)}>☑ {i.text}</Button>
-            ))}
-            {doneQs.map(q => (
-              <Text key={`dq-${q.id}`} dimColor>{q.id}. {q.text} → {q.answer ?? 'closed'}</Text>
-            ))}
-          </Box>
-        )}
-      </Box>
-    )
+  const doneRow = (i: Item) => (
+    i.kind === 'todo'
+      ? (
+        <Button key={`d-${i.id}`} plain dimColor onPress={() => toggle(i.id)}>
+          <Text color="success">✓  </Text><Text strikethrough dimColor>{i.text}</Text>
+        </Button>
+      )
+      : <Text key={`dq-${i.id}`} dimColor>✓  {i.id}. {i.text} → {i.answer ?? 'closed'}</Text>
+  )
+
+  const isClear = openTodos.length === 0 && openQs.length === 0
+
+  return (
+    <Box flexDirection="column" gap="lg" padding="sm">
+      {isBand && (
+        <Box flexDirection="row" gap="sm" alignItems="center">
+          <Text weight="semibold">{TITLE}</Text>
+          <Button key="band-hide" label="Hide" plain onPress={() => update($, isBandHidden, () => true)} />
+        </Box>
+      )}
+
+      {isClear && (
+        <Box flexDirection="column" gap="xs" alignItems="center" padding="md">
+          <Text color="success" weight="semibold">All clear</Text>
+          <Text size="footnote" color="inactive">Nothing waits on you.</Text>
+        </Box>
+      )}
+
+      {openQs.length > 0 && (
+        <Box flexDirection="column" gap="sm">
+          {heading('Questions', openQs.length)}
+          {openQs.map(question)}
+        </Box>
+      )}
+
+      {openTodos.length > 0 && (
+        <Box flexDirection="column" gap="sm">
+          {heading('To do', openTodos.length)}
+          {openTodos.map(todo)}
+        </Box>
+      )}
+
+      {!isBand && done.length > 0 && (
+        <Box flexDirection="column" gap="xs">
+          <Button key="done-toggle" plain onPress={() => update($, isDoneOpen, (v: boolean) => !v)}>
+            <Text size="footnote" color="inactive">{showDone ? 'Hide done' : `Show done (${done.length})`}</Text>
+          </Button>
+          {showDone && done.map(doneRow)}
+        </Box>
+      )}
+    </Box>
+  )
 }

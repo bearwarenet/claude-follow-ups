@@ -35,6 +35,9 @@ test('a to-do shows, ticks off, and Claude reads it back, on every surface', asy
 
   const ui = await $.ui.mount({ ...PANE, surface: 'desktop' })
   await ui.press({ key: 't-T1' })
+  expect((await ui.find({ type: 'Text', text: /All clear/ }))?.text).toBe('All clear')
+  await ui.press({ key: 'done-toggle' })
+  expect(await ui.find({ type: 'Button', key: 'd-T1' })).toBeDefined()
   await ui.unmount()
 
   const listed = await $.tool.call({ tool: 'mcp__follow-ups__list_items' } as any)
@@ -47,7 +50,7 @@ test('a question answered by an option reaches Claude as a message', async ($, o
   await $.tool.call({ tool: 'mcp__follow-ups__ask_question', text: 'Text or email by default?', options: ['Text', 'Email', 'Both'], recommended: 'Text' } as any)
 
   const ui = await $.ui.mount({ ...PANE, surface: 'desktop' })
-  expect((await ui.find({ type: 'Button', text: /my pick/ }))?.text).toContain('Text')
+  expect((await ui.find({ type: 'Text', text: /My pick/ }))?.text).toBe('My pick: Text')
   await ui.press({ key: 'o-Q1-2' })
   await ui.unmount()
 
@@ -88,4 +91,16 @@ test('where no app draws the panel, the tool tells Claude to ask in the chat', a
   await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true })
   const asked = await $.tool.call({ tool: 'mcp__follow-ups__ask_question', text: 'Which day?' } as any)
   expect(JSON.stringify(asked)).toContain('cannot see the panel')
+})
+
+test('question cards draw on every surface', async ($, on) => {
+  await start($, on, [])
+  await $.tool.call({ tool: 'mcp__follow-ups__ask_question', text: 'Text or email?', detail: 'Rob pays for texts.', options: ['Text', 'Email', 'Both'], recommended: 'Text' } as any)
+  await $.tool.call({ tool: 'mcp__follow-ups__add_todo', text: 'Lock the Worker', detail: 'Access tab' } as any)
+  for (const surface of ['terminal', 'desktop', 'vscode', 'mobile'] as const) {
+    const ui = await $.ui.mount({ ...PANE, surface })
+    expect((await ui.find({ type: 'Text', text: /Rob pays/ }))?.text).toBe('Rob pays for texts.')
+    expect(await ui.find({ type: 'Button', key: 'o-Q1-2' })).toBeDefined()
+    await ui.unmount()
+  }
 })
