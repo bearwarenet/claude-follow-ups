@@ -15,6 +15,6 @@ export type Item = {
 
 declare module 'claude-code' {
   interface PluginState {
-    'follow-ups': { items: Shaped<Item[]>; isBandHidden: boolean }
+    'follow-ups': { items: Shaped<Item[]>; isBandHidden: boolean; isDoneOpen: boolean }
   }
 }
