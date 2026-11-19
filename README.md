@@ -1,5 +1,13 @@
 # follow-ups
 
+This repo holds the studio's Follow-ups tools, one copy each:
+
+- `skills/follow-ups/SKILL.md`: the rule every Claude session follows (upload it to the Claude account; projects only point to it).
+- `page/index.html`: the Follow-ups page, a private claude.ai artifact, for cloud sessions.
+- The plugin below: the same list as a panel, for local sessions.
+
+## The panel plugin
+
 A panel beside the chat in Claude Code, with two lists:
 
 - **To do**: your action items. Tap one to tick it off; Claude sees it.
