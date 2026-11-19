@@ -4,7 +4,8 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600&family=JetBrains+Mono:wght@500&display=swap">
 <style>
-  /* One column, questions first (they block Claude), then to-dos, then what is done.
+  /* One column, questions first (they block Claude), then to-dos. Done items leave the page;
+     a short bar offers Undo.
      Cool slate neutrals; one bioluminescent teal for what needs a tap. */
   :root {
     --bg: #f3f6f7;
@@ -92,11 +93,15 @@
   .todo .body { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
   .todo label { font-weight: 500; cursor: pointer; }
 
-  details.done { color: var(--muted); }
-  details.done summary { cursor: pointer; font-size: 14px; }
-  .donelist { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; font-size: 14px; }
-  .donelist s { text-decoration-color: var(--muted); }
-  .undo { font: inherit; font-size: 13px; background: none; border: 0; color: var(--accent); cursor: pointer; padding: 0 0 0 6px; }
+  .undo { font: 600 13px var(--font-body); background: none; border: 0; color: var(--accent); cursor: pointer; padding: 0; }
+  .undobar {
+    position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+    max-width: calc(100% - 32px); display: flex; gap: 14px; align-items: center;
+    background: var(--fg); color: var(--bg); border-radius: 10px; padding: 10px 16px; font-size: 14px;
+    box-shadow: 0 6px 24px rgb(0 0 0 / 0.18);
+  }
+  .undobar span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .undobar .undo { color: var(--bg); text-decoration: underline; }
 
   .empty { background: var(--card); border: 1px dashed var(--line); border-radius: 12px; padding: 22px; text-align: center; color: var(--muted); }
   .empty b { display: block; color: var(--ok); font: 600 16px var(--font-head); margin-bottom: 4px; }
@@ -127,10 +132,7 @@
     <ul class="todos" id="tlist"></ul>
   </section>
   <div id="emptybox" hidden></div>
-  <details class="done" id="done" hidden>
-    <summary id="donesum"></summary>
-    <ul class="donelist" id="dlist"></ul>
-  </details>
+  <div class="undobar" id="undobar" role="status" hidden></div>
 </div>
 
 <script>
@@ -173,7 +175,6 @@
     const open = visible(items.filter((i) => i.status !== "done"));
     const qs = open.filter((i) => i.kind === "question");
     const ts = open.filter((i) => i.kind === "todo");
-    const done = visible(items.filter((i) => i.status === "done")).sort((a, b) => String(b.doneAt || "").localeCompare(String(a.doneAt || "")));
 
     if (!loaded) return;
     const parts = [];
@@ -193,19 +194,6 @@
     box.hidden = qs.length + ts.length > 0;
     box.className = "empty";
     box.replaceChildren(el("b", { text: "All clear" }), document.createTextNode("Claude adds questions and to-dos here as you work."));
-
-    $("done").hidden = !done.length;
-    $("donesum").textContent = `Done (${done.length})`;
-    const dl = $("dlist"); dl.replaceChildren();
-    for (const d of done.slice(0, 50)) {
-      const line = el("li", {});
-      if (d.kind === "todo") {
-        line.append(el("s", { text: d.text }), el("button", { class: "undo", type: "button", onclick: () => setStatus(d, "open"), text: "Undo" }));
-      } else {
-        line.append(document.createTextNode(`${d.label || d.id}. ${d.text} → `), el("strong", { text: d.answer || "closed" }));
-      }
-      dl.append(line);
-    }
   }
 
   function questionCard(q) {
@@ -241,8 +229,19 @@
     const n = $("notice"); n.hidden = !text; n.textContent = text || ""; n.className = "note" + (warn ? " warn" : "");
   }
 
+  let undoTimer = null;
+  function offerUndo(it) {
+    const bar = $("undobar");
+    clearTimeout(undoTimer);
+    bar.replaceChildren(el("span", { text: `Done: ${it.text}` }),
+      el("button", { class: "undo", type: "button", text: "Undo", onclick: () => { bar.hidden = true; setStatus(it, "open"); } }));
+    bar.hidden = false;
+    undoTimer = setTimeout(() => { bar.hidden = true; }, 10000);
+  }
+
   async function setStatus(it, status) {
     if (!db) return;
+    if (status === "done") offerUndo(it);
     try {
       await db.collection("items").doc(it.id).update(status === "done"
         ? { status: "done", doneAt: new Date().toISOString() }
