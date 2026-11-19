@@ -210,18 +210,23 @@ async function draw($: any, e: any, isBand: boolean) {
 
   const question = (q: Item) => (
     <Box key={`card-${q.id}`} flexDirection="column" gap="sm" padding="md" borderStyle="round" borderColor="subtle">
-      <Text size="caption" color="inactive">{q.id}</Text>
-      <Text weight="medium">{q.text}</Text>
+      <Box flexDirection="row" gap="sm">
+        <Text color="inactive">{q.id}</Text>
+        <Box flexShrink={1}>
+          <Text weight="medium">{q.text}</Text>
+        </Box>
+      </Box>
       {q.detail && <Text size="footnote" color="inactive">{q.detail}</Text>}
       {q.options && (
         <Box flexDirection="row" flexWrap="wrap" gap="sm">
           {q.options.map((o, n) => (
-            <Button key={`o-${q.id}-${n}`} variant={o === q.recommended ? 'primary' : 'secondary'} onPress={() => answer(q, o)}>{o}</Button>
+            <Button key={`o-${q.id}-${n}`} variant={o === q.recommended ? 'primary' : 'secondary'} onPress={() => answer(q, o)}>{o === q.recommended ? `★ ${o}` : o}</Button>
           ))}
         </Box>
       )}
-      {q.recommended && <Text size="caption" color="inactive">My pick: {q.recommended}</Text>}
-      <Input key={`a-${q.id}`} placeholder={q.options ? 'Or type your own answer' : 'Type your answer'} submitLabel="Send" onSubmit={(value: string) => answer(q, value)} />
+      <Box width="100%">
+        <Input key={`a-${q.id}`} placeholder={q.options ? 'Or your own answer' : 'Your answer'} submitLabel="Send" onSubmit={(value: string) => answer(q, value)} />
+      </Box>
     </Box>
   )
 

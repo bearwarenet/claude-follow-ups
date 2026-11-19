@@ -50,7 +50,8 @@ test('a question answered by an option reaches Claude as a message', async ($, o
   await $.tool.call({ tool: 'mcp__follow-ups__ask_question', text: 'Text or email by default?', options: ['Text', 'Email', 'Both'], recommended: 'Text' } as any)
 
   const ui = await $.ui.mount({ ...PANE, surface: 'desktop' })
-  expect((await ui.find({ type: 'Text', text: /My pick/ }))?.text).toBe('My pick: Text')
+  expect((await ui.find({ type: 'Button', key: 'o-Q1-0' }))?.text).toBe('★ Text')
+  expect((await ui.find({ type: 'Button', key: 'o-Q1-1' }))?.text).toBe('Email')
   await ui.press({ key: 'o-Q1-2' })
   await ui.unmount()
 

@@ -3,7 +3,7 @@
 A panel beside the chat in Claude Code, with two lists:
 
 - **To do**: your action items. Tap one to tick it off; Claude sees it.
-- **Questions**: what Claude needs from you, each with up to 3 options and Claude's pick. Tap an option or type an answer; it reaches Claude as a message.
+- **Questions**: what Claude needs from you, each with up to 3 options; Claude's pick has a ★. Tap an option or type an answer; it reaches Claude as a message.
 
 Claude fills the panel with four tools (`add_todo`, `ask_question`, `close_item`, `list_items`). Each session has its own list. Type `/follow-ups` to reopen the panel.
 
