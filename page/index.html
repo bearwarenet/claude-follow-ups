@@ -136,8 +136,7 @@
 <script>
 (() => {
   const $ = (id) => document.getElementById(id);
-  const SERVER = "Claude Code Remote";
-  let db = null, mcp = null, items = [], filter = "all", loaded = false;
+  let db = null, comments = null, items = [], filter = "all", loaded = false;
   const sending = new Set();
   const statusById = {};
 
@@ -251,51 +250,45 @@
     } catch (e) { notice("Could not save that change. Check your connection and try again.", true); }
   }
 
+  // Sends the answer to Claude as a comment on this page ("Send to Claude").
+  // Every Claude session watching the page gets it. Called first, while the
+  // tap is still fresh: the platform only sends from a recent gesture.
+  async function sendToClaude(q, text) {
+    if (!comments) return "off";
+    let can = "off";
+    try { can = await comments.canSendToClaude(); } catch (e) { return "off"; }
+    if (can !== "available") return can;
+    const anchor = await comments.anchorFor($("summary"));
+    await comments.sendToClaude({ anchor, text: `Answer to ${q.label || q.id} [${q.project || "no project"}, item ${q.id}] "${q.text}": ${text}` });
+    return "sent";
+  }
+
   async function answer(q, value) {
     const text = String(value || "").trim();
     if (!text || !db || sending.has(q.id)) return;
     sending.add(q.id); render();
+    let sent = "off", sendError = "";
+    try { sent = await sendToClaude(q, text); } catch (e) { sendError = (e && e.code) || "unknown"; }
     try {
-      await db.collection("items").doc(q.id).update({ status: "done", answer: text, doneAt: new Date().toISOString(), delivered: false });
+      await db.collection("items").doc(q.id).update({
+        status: "done", answer: text, doneAt: new Date().toISOString(),
+        delivered: sent === "sent", deliveryError: sent === "sent" ? null : (sendError || sent),
+      });
     } catch (e) {
       sending.delete(q.id); render();
       notice("Could not save your answer. Check your connection and try again.", true);
       return;
     }
-    let delivered = false;
-    if (mcp && q.sessionId) {
-      try {
-        await mcp.callTool(SERVER, "send_message", {
-          session_id: q.sessionId,
-          message: `Answer to ${q.label || q.id} ("${q.text}"), from the Follow-ups page: ${text}`,
-        });
-        delivered = true;
-        try { await db.collection("items").doc(q.id).update({ delivered: true }); } catch (e) {}
-      } catch (e) {
-        const code = (e && e.code) || "unknown";
-        try {
-          let tools = "";
-          try { const lt = await mcp.listTools(SERVER); tools = (lt.servers[0]?.tools || []).map((t) => t.name).join(",") + " auth=" + (lt.servers[0]?.authStatus || "none"); } catch (le) { tools = "listTools failed: " + (le && le.code); }
-          await db.collection("items").doc(q.id).update({ deliveryError: `${code}: ${String((e && e.message) || "").slice(0, 400)} | tools: ${tools}` });
-        } catch (we) {}
-        const why = {
-          server_not_connected: `Add the "${SERVER}" connector in claude.ai Settings → Connectors to send answers straight to the session.`,
-          needs_reauth: `Reconnect "${SERVER}" in claude.ai Settings → Connectors.`,
-          not_in_manifest: "Sending to the session is turned off for this page.",
-          approval_required: "Sending needs your approval: allow it when claude.ai asks.",
-        }[e && e.code];
-        notice(`Your answer is saved. ${why || `It could not be sent to the session (${code}), so Claude reads it on its next turn.`}`, true);
-      }
-    }
     sending.delete(q.id);
-    if (delivered) notice("");
+    if (sent === "sent") notice("Sent to Claude. The reply shows in the page's comments.");
+    else notice(`Your answer is saved. Claude reads it on its next turn${sendError || sent !== "off" ? ` (not sent: ${sendError || sent})` : ""}.`, true);
     render();
   }
 
   render();
   const stall = setTimeout(() => { if (!loaded) $("summary").textContent = "Your list cannot be reached yet. It loads as soon as the connection answers."; }, 10000);
 
-  window.claude?.use("mcp").then((m) => { mcp = m; }).catch(() => {});
+  window.claude?.use("comments").then((c) => { comments = c; }).catch(() => {});
   window.claude?.use("db").then((d) => {
     db = d;
     if (!db) { clearTimeout(stall); $("summary").textContent = "Sign in to claude.ai to see your follow-ups."; return; }
