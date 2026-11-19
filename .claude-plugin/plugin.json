@@ -1,6 +1,6 @@
 {
   "name": "follow-ups",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "A panel beside the chat: your action items to tick off, and Claude's questions to answer.",
   "types": "./types/index.d.ts"
 }
