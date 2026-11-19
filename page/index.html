@@ -272,13 +272,19 @@
         delivered = true;
         try { await db.collection("items").doc(q.id).update({ delivered: true }); } catch (e) {}
       } catch (e) {
+        const code = (e && e.code) || "unknown";
+        try {
+          let tools = "";
+          try { const lt = await mcp.listTools(SERVER); tools = (lt.servers[0]?.tools || []).map((t) => t.name).join(",") + " auth=" + (lt.servers[0]?.authStatus || "none"); } catch (le) { tools = "listTools failed: " + (le && le.code); }
+          await db.collection("items").doc(q.id).update({ deliveryError: `${code}: ${String((e && e.message) || "").slice(0, 400)} | tools: ${tools}` });
+        } catch (we) {}
         const why = {
           server_not_connected: `Add the "${SERVER}" connector in claude.ai Settings → Connectors to send answers straight to the session.`,
           needs_reauth: `Reconnect "${SERVER}" in claude.ai Settings → Connectors.`,
           not_in_manifest: "Sending to the session is turned off for this page.",
           approval_required: "Sending needs your approval: allow it when claude.ai asks.",
         }[e && e.code];
-        notice(`Your answer is saved. ${why || "It could not be sent to the session, so Claude reads it on its next turn."}`, true);
+        notice(`Your answer is saved. ${why || `It could not be sent to the session (${code}), so Claude reads it on its next turn.`}`, true);
       }
     }
     sending.delete(q.id);
