@@ -259,7 +259,7 @@
     try { can = await comments.canSendToClaude(); } catch (e) { return "off"; }
     if (can !== "available") return can;
     const anchor = await comments.anchorFor($("summary"));
-    await comments.sendToClaude({ anchor, text: `Answer to ${q.label || q.id} [${q.project || "no project"}, item ${q.id}] "${q.text}": ${text}` });
+    await comments.sendToClaude({ anchor, text: `Answer to ${q.label || q.id} [${q.project || "no project"}, item ${q.id}, for session ${q.sessionId || "unknown"}] "${q.text}": ${text}` });
     return "sent";
   }
 
