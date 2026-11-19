@@ -1,0 +1,304 @@
+<title>Noctiluque Follow-ups</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+  /* One column, questions first (they block Claude), then to-dos, then what is done.
+     Cool slate neutrals; one bioluminescent teal for what needs a tap. */
+  :root {
+    --bg: #f3f6f7;
+    --card: #ffffff;
+    --fg: #14212a;
+    --muted: #5d6e78;
+    --line: #d9e2e6;
+    --accent: #0b7f7a;
+    --accent-soft: #e2f3f1;
+    --on-accent: #ffffff;
+    --ok: #2f7d4f;
+    --warn: #9a5b00;
+    --font-head: "Space Grotesk", "Inter", system-ui, sans-serif;
+    --font-body: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0e161b; --card: #141f26; --fg: #e3ecef; --muted: #8fa1aa; --line: #24333c;
+      --accent: #46cdbf; --accent-soft: #163330; --on-accent: #062220; --ok: #6fca93; --warn: #e2a74a;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0e161b; --card: #141f26; --fg: #e3ecef; --muted: #8fa1aa; --line: #24333c;
+    --accent: #46cdbf; --accent-soft: #163330; --on-accent: #062220; --ok: #6fca93; --warn: #e2a74a;
+    color-scheme: dark;
+  }
+
+  body {
+    background: var(--bg); color: var(--fg); font: 15px/1.5 var(--font-body);
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+  }
+  .wrap { max-width: 720px; margin: 0 auto; padding-block: 28px 64px; display: flex; flex-direction: column; gap: 28px; }
+
+  header { display: flex; flex-direction: column; gap: 6px; }
+  h1 { font: 600 26px/1.15 var(--font-head); margin: 0; letter-spacing: -0.01em; }
+  .summary { color: var(--muted); margin: 0; }
+  .summary b { color: var(--fg); font-weight: 600; }
+
+  .filters { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip {
+    font: 500 13px var(--font-body); border: 1px solid var(--line); background: var(--card); color: var(--fg);
+    border-radius: 999px; padding: 5px 12px; cursor: pointer;
+  }
+  .chip[aria-pressed="true"] { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+
+  section { display: flex; flex-direction: column; gap: 12px; }
+  h2 { font: 600 17px/1.2 var(--font-head); margin: 0; display: flex; align-items: baseline; gap: 8px; }
+  h2 .n { font: 500 13px var(--font-mono); color: var(--accent); }
+
+  .q {
+    background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+    padding: 16px; display: flex; flex-direction: column; gap: 12px; min-width: 0;
+  }
+  .meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
+  .id { font: 500 12px var(--font-mono); }
+  .proj { background: var(--accent-soft); color: var(--accent); border-radius: 6px; padding: 1px 7px; font-weight: 500; }
+  .qtext { font-weight: 600; font-size: 16px; margin: 0; text-wrap: balance; }
+  .detail { color: var(--muted); margin: 0; font-size: 14px; white-space: pre-wrap; overflow-wrap: anywhere; }
+
+  .options { display: flex; flex-wrap: wrap; gap: 8px; }
+  .opt {
+    font: 500 14px var(--font-body); border-radius: 8px; padding: 8px 14px; cursor: pointer;
+    border: 1px solid var(--line); background: var(--bg); color: var(--fg);
+  }
+  .opt:hover { border-color: var(--accent); }
+  .opt.pick { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+  .answer { display: flex; gap: 8px; }
+  .answer textarea {
+    flex: 1; min-width: 0; resize: vertical; min-height: 40px; font: 14px/1.4 var(--font-body);
+    border: 1px solid var(--line); border-radius: 8px; padding: 9px 11px; background: var(--bg); color: var(--fg);
+  }
+  .btn {
+    font: 600 14px var(--font-body); border: 0; border-radius: 8px; padding: 0 16px; cursor: pointer;
+    background: var(--fg); color: var(--bg); min-height: 40px;
+  }
+  .btn:disabled, .opt:disabled { opacity: 0.5; cursor: default; }
+
+  .todos { list-style: none; margin: 0; padding: 0; background: var(--card); border: 1px solid var(--line); border-radius: 12px; }
+  .todo { display: flex; gap: 12px; padding: 14px 16px; align-items: flex-start; }
+  .todo + .todo { border-top: 1px solid var(--line); }
+  .todo input { width: 20px; height: 20px; margin: 2px 0 0; accent-color: var(--accent); flex: none; cursor: pointer; }
+  .todo .body { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .todo label { font-weight: 500; cursor: pointer; }
+
+  details.done { color: var(--muted); }
+  details.done summary { cursor: pointer; font-size: 14px; }
+  .donelist { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; font-size: 14px; }
+  .donelist s { text-decoration-color: var(--muted); }
+  .undo { font: inherit; font-size: 13px; background: none; border: 0; color: var(--accent); cursor: pointer; padding: 0 0 0 6px; }
+
+  .empty { background: var(--card); border: 1px dashed var(--line); border-radius: 12px; padding: 22px; text-align: center; color: var(--muted); }
+  .empty b { display: block; color: var(--ok); font: 600 16px var(--font-head); margin-bottom: 4px; }
+  .note { font-size: 13px; color: var(--muted); }
+  .note.warn { color: var(--warn); }
+  .status { font-size: 13px; }
+  .status.ok { color: var(--ok); }
+  .status.warn { color: var(--warn); }
+
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  @media (max-width: 480px) { .answer { flex-direction: column; } .btn { width: 100%; } }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Follow-ups</h1>
+    <p class="summary" id="summary">Loading your list…</p>
+  </header>
+  <div class="filters" id="filters" aria-label="Filter by project"></div>
+  <p class="note" id="notice" hidden></p>
+  <section id="qsec" aria-labelledby="qh">
+    <h2 id="qh">Questions <span class="n" id="qn"></span></h2>
+    <div id="qlist"></div>
+  </section>
+  <section id="tsec" aria-labelledby="th">
+    <h2 id="th">To do <span class="n" id="tn"></span></h2>
+    <ul class="todos" id="tlist"></ul>
+  </section>
+  <div id="emptybox" hidden></div>
+  <details class="done" id="done" hidden>
+    <summary id="donesum"></summary>
+    <ul class="donelist" id="dlist"></ul>
+  </details>
+</div>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const SERVER = "Claude Code Remote";
+  let db = null, mcp = null, items = [], filter = "all", loaded = false;
+  const sending = new Set();
+  const statusById = {};
+
+  const el = (tag, props = {}, ...kids) => {
+    const n = document.createElement(tag);
+    for (const [k, v] of Object.entries(props)) {
+      if (k === "class") n.className = v;
+      else if (k === "text") n.textContent = v;
+      else if (k.startsWith("on")) n.addEventListener(k.slice(2), v);
+      else if (v !== undefined && v !== null && v !== false) n.setAttribute(k, v === true ? "" : v);
+    }
+    for (const k of kids) if (k) n.append(k);
+    return n;
+  };
+
+  const meta = (it) => el("div", { class: "meta" },
+    el("span", { class: "id", text: it.label || it.id }),
+    it.project ? el("span", { class: "proj", text: it.project }) : null,
+    it.createdAt ? el("span", { text: new Date(it.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric" }) }) : null);
+
+  function visible(list) { return filter === "all" ? list : list.filter((i) => i.project === filter); }
+
+  function render() {
+    const projects = [...new Set(items.map((i) => i.project).filter(Boolean))].sort();
+    if (filter !== "all" && !projects.includes(filter)) filter = "all";
+    const f = $("filters"); f.replaceChildren();
+    if (projects.length > 1) {
+      for (const p of ["all", ...projects]) {
+        f.append(el("button", { class: "chip", type: "button", "aria-pressed": String(filter === p),
+          onclick: () => { filter = p; render(); }, text: p === "all" ? "All projects" : p }));
+      }
+    }
+
+    const open = visible(items.filter((i) => i.status !== "done"));
+    const qs = open.filter((i) => i.kind === "question");
+    const ts = open.filter((i) => i.kind === "todo");
+    const done = visible(items.filter((i) => i.status === "done")).sort((a, b) => String(b.doneAt || "").localeCompare(String(a.doneAt || "")));
+
+    if (!loaded) return;
+    const parts = [];
+    if (qs.length) parts.push(`<b>${qs.length}</b> question${qs.length > 1 ? "s" : ""} wait on you`);
+    if (ts.length) parts.push(`<b>${ts.length}</b> to-do${ts.length > 1 ? "s" : ""}`);
+    $("summary").innerHTML = parts.length ? parts.join(" · ") : "Nothing waits on you.";
+
+    $("qsec").hidden = !qs.length; $("qn").textContent = qs.length || "";
+    const ql = $("qlist"); ql.replaceChildren(); ql.style.cssText = "display:flex;flex-direction:column;gap:12px";
+    for (const q of qs) ql.append(questionCard(q));
+
+    $("tsec").hidden = !ts.length; $("tn").textContent = ts.length || "";
+    const tl = $("tlist"); tl.replaceChildren();
+    for (const t of ts) tl.append(todoRow(t));
+
+    const box = $("emptybox");
+    box.hidden = qs.length + ts.length > 0;
+    box.className = "empty";
+    box.replaceChildren(el("b", { text: "All clear" }), document.createTextNode("Claude adds questions and to-dos here as you work."));
+
+    $("done").hidden = !done.length;
+    $("donesum").textContent = `Done (${done.length})`;
+    const dl = $("dlist"); dl.replaceChildren();
+    for (const d of done.slice(0, 50)) {
+      const line = el("li", {});
+      if (d.kind === "todo") {
+        line.append(el("s", { text: d.text }), el("button", { class: "undo", type: "button", onclick: () => setStatus(d, "open"), text: "Undo" }));
+      } else {
+        line.append(document.createTextNode(`${d.label || d.id}. ${d.text} → `), el("strong", { text: d.answer || "closed" }));
+      }
+      dl.append(line);
+    }
+  }
+
+  function questionCard(q) {
+    const busy = sending.has(q.id);
+    const card = el("article", { class: "q", "aria-label": q.text });
+    card.append(meta(q), el("p", { class: "qtext", text: q.text }));
+    if (q.detail) card.append(el("p", { class: "detail", text: q.detail }));
+    if (Array.isArray(q.options) && q.options.length) {
+      const row = el("div", { class: "options" });
+      for (const o of q.options) {
+        const isPick = o === q.recommended;
+        row.append(el("button", { class: "opt" + (isPick ? " pick" : ""), type: "button", disabled: busy,
+          onclick: () => answer(q, o), text: isPick ? `★ ${o}` : o }));
+      }
+      card.append(row);
+    }
+    const ta = el("textarea", { id: `ans-${q.id}`, rows: "1", placeholder: q.options?.length ? "Or your own answer" : "Your answer", "aria-label": `Your answer to ${q.label || q.id}` });
+    const send = el("button", { class: "btn", type: "button", disabled: busy, onclick: () => answer(q, ta.value), text: busy ? "Sending…" : "Send" });
+    ta.addEventListener("keydown", (e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) answer(q, ta.value); });
+    card.append(el("div", { class: "answer" }, ta, send));
+    return card;
+  }
+
+  function todoRow(t) {
+    const id = `todo-${t.id}`;
+    const body = el("div", { class: "body" }, el("label", { for: id, text: t.text }));
+    if (t.detail) body.append(el("p", { class: "detail", text: t.detail }));
+    body.append(meta(t));
+    return el("li", { class: "todo" }, el("input", { id, type: "checkbox", onchange: () => setStatus(t, "done") }), body);
+  }
+
+  function notice(text, warn) {
+    const n = $("notice"); n.hidden = !text; n.textContent = text || ""; n.className = "note" + (warn ? " warn" : "");
+  }
+
+  async function setStatus(it, status) {
+    if (!db) return;
+    try {
+      await db.collection("items").doc(it.id).update(status === "done"
+        ? { status: "done", doneAt: new Date().toISOString() }
+        : { status: "open", doneAt: null });
+    } catch (e) { notice("Could not save that change. Check your connection and try again.", true); }
+  }
+
+  async function answer(q, value) {
+    const text = String(value || "").trim();
+    if (!text || !db || sending.has(q.id)) return;
+    sending.add(q.id); render();
+    try {
+      await db.collection("items").doc(q.id).update({ status: "done", answer: text, doneAt: new Date().toISOString(), delivered: false });
+    } catch (e) {
+      sending.delete(q.id); render();
+      notice("Could not save your answer. Check your connection and try again.", true);
+      return;
+    }
+    let delivered = false;
+    if (mcp && q.sessionId) {
+      try {
+        await mcp.callTool(SERVER, "send_message", {
+          session_id: q.sessionId,
+          message: `Answer to ${q.label || q.id} ("${q.text}"), from the Follow-ups page: ${text}`,
+        });
+        delivered = true;
+        try { await db.collection("items").doc(q.id).update({ delivered: true }); } catch (e) {}
+      } catch (e) {
+        const why = {
+          server_not_connected: `Add the "${SERVER}" connector in claude.ai Settings → Connectors to send answers straight to the session.`,
+          needs_reauth: `Reconnect "${SERVER}" in claude.ai Settings → Connectors.`,
+          not_in_manifest: "Sending to the session is turned off for this page.",
+          approval_required: "Sending needs your approval: allow it when claude.ai asks.",
+        }[e && e.code];
+        notice(`Your answer is saved. ${why || "It could not be sent to the session, so Claude reads it on its next turn."}`, true);
+      }
+    }
+    sending.delete(q.id);
+    if (delivered) notice("");
+    render();
+  }
+
+  render();
+  const stall = setTimeout(() => { if (!loaded) $("summary").textContent = "Your list cannot be reached yet. It loads as soon as the connection answers."; }, 10000);
+
+  window.claude?.use("mcp").then((m) => { mcp = m; }).catch(() => {});
+  window.claude?.use("db").then((d) => {
+    db = d;
+    if (!db) { clearTimeout(stall); $("summary").textContent = "Sign in to claude.ai to see your follow-ups."; return; }
+    db.collection("items").orderBy("createdAt", "asc").onSnapshot((snap) => {
+      items = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      if (!snap.metadata.fromCache) { loaded = true; clearTimeout(stall); }
+      else if (snap.size) loaded = true;
+      render();
+    }, () => { clearTimeout(stall); loaded = true; $("summary").textContent = "The list could not load. Reload the page to try again."; });
+  }).catch(() => { $("summary").textContent = "The list could not load. Reload the page to try again."; });
+})();
+</script>
