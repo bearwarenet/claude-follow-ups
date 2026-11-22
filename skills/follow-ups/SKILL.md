@@ -12,15 +12,15 @@ This skill is the one copy of the rule. Projects only point to it. Change it her
 ## At the start of a session
 
 1. Watch the page: `ArtifactComments`, action `watch`, with its URL. Then Matt's answers wake this session.
-2. Read the open items of your project: `ArtifactData`, `query` on `items`, where `project` is the repo name.
+2. Read the items of your project: `ArtifactData`, `query` on `items`, where `project` is the repo name. The page holds only open items (`open`) and answers not delivered yet (`answered`): closed items are deleted.
 3. Know your session id: `get_session` (claude-code-remote), no argument.
 
 ## Add a to-do or a question
 
 - **A to-do for Matt** (a click, a message to send, a check outside the chat): add it to the page.
 - **A question for Matt:** add it to the page, not in the chat. Say in one line of the chat that it is there. Give at most 3 options and your pick.
-- **No duplicates:** before you add an item, read the open items of the project. When one already covers it, update that item (its `text` and `detail`) instead of adding another. When two overlap, keep one and close the other with `status` `done` and `mergedInto` set to the id you kept.
-- **One item, one document:** id `<project>-t<n>` or `<project>-q<n>`, the next free number. Fields:
+- **No duplicates:** before you add an item, read the open items of the project. When one already covers it, update that item (its `text` and `detail`) instead of adding another. When two overlap, keep one and delete the other.
+- **One item, one document:** id `<project>-t<n>` or `<project>-q<n>`, a number no item of the project has now (closed ones are gone, so a number may come back). Fields:
 
 | Field | Value |
 | --- | --- |
@@ -40,12 +40,14 @@ This skill is the one copy of the rule. Projects only point to it. Change it her
 - An answer arrives as a comment sent to Claude: "Answer to Q2 [project, item id, for session <id>]: ...".
 - Every session that watches the page gets every answer. Act only on answers for your own session id: act on it, reply in the comment's thread, resolve the thread.
 - An answer for another session: ignore it. No reply, no resolve.
-- The page also saves each answer in the item (`answer`, `status` `done`). If no comment came, read the item.
+- Sent to Claude, the answer is in the comment and the page deletes the question. Not sent (the comment could not go), the page keeps it with `status` `answered` and the `answer`: read it, act on it, then delete it.
 
 ## Close and keep clean
 
-- Set `status` to `done` (with `doneAt`) on a question you no longer need, or a to-do you did yourself.
-- Never delete Matt's items. Never touch another project's items.
+- Matt's rule (2026-11-22): nothing closed stays on the page. It only costs every session that reads it.
+- Delete an item (`ArtifactData`, `delete`, with its `version`) when it is closed: a question you no longer need, an answer you acted on, a to-do you did yourself, or a to-do whose work is done (a pull request Matt merged).
+- Matt's tick deletes a to-do on the page (with Undo).
+- Never touch another project's items.
 
 ## Never on the page
 

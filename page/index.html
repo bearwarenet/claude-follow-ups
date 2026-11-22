@@ -4,7 +4,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600&family=JetBrains+Mono:wght@500&display=swap">
 <style>
-  /* One column, questions first (they block Claude), then to-dos. Done items leave the page;
+  /* One column, questions first (they block Claude), then to-dos. Done items are deleted;
      a short bar offers Undo.
      Cool slate neutrals; one bioluminescent teal for what needs a tap. */
   :root {
@@ -172,7 +172,7 @@
       }
     }
 
-    const open = visible(items.filter((i) => i.status !== "done"));
+    const open = visible(items.filter((i) => !i.status || i.status === "open"));
     const qs = open.filter((i) => i.kind === "question");
     const ts = open.filter((i) => i.kind === "todo");
 
@@ -222,7 +222,7 @@
     const body = el("div", { class: "body" }, el("label", { for: id, text: t.text }));
     if (t.detail) body.append(el("p", { class: "detail", text: t.detail }));
     body.append(meta(t));
-    return el("li", { class: "todo" }, el("input", { id, type: "checkbox", onchange: () => setStatus(t, "done") }), body);
+    return el("li", { class: "todo" }, el("input", { id, type: "checkbox", onchange: () => closeTodo(t) }), body);
   }
 
   function notice(text, warn) {
@@ -234,19 +234,25 @@
     const bar = $("undobar");
     clearTimeout(undoTimer);
     bar.replaceChildren(el("span", { text: `Done: ${it.text}` }),
-      el("button", { class: "undo", type: "button", text: "Undo", onclick: () => { bar.hidden = true; setStatus(it, "open"); } }));
+      el("button", { class: "undo", type: "button", text: "Undo", onclick: () => { bar.hidden = true; restore(it); } }));
     bar.hidden = false;
     undoTimer = setTimeout(() => { bar.hidden = true; }, 10000);
   }
 
-  async function setStatus(it, status) {
+  // A closed item leaves the list for good: nothing done is kept (it would only cost every
+  // session that reads the list). Undo puts the same item back.
+  async function closeTodo(it) {
     if (!db) return;
-    if (status === "done") offerUndo(it);
-    try {
-      await db.collection("items").doc(it.id).update(status === "done"
-        ? { status: "done", doneAt: new Date().toISOString() }
-        : { status: "open", doneAt: null });
-    } catch (e) { notice("Could not save that change. Check your connection and try again.", true); }
+    offerUndo(it);
+    try { await db.collection("items").doc(it.id).delete(); }
+    catch (e) { notice("Could not save that change. Check your connection and try again.", true); }
+  }
+
+  async function restore(it) {
+    if (!db) return;
+    const { id, ...data } = it;
+    try { await db.collection("items").doc(id).set({ ...data, status: "open" }); }
+    catch (e) { notice("Could not undo. Check your connection and try again.", true); }
   }
 
   // Sends the answer to Claude as a comment on this page ("Send to Claude").
@@ -268,11 +274,13 @@
     sending.add(q.id); render();
     let sent = "off", sendError = "";
     try { sent = await sendToClaude(q, text); } catch (e) { sendError = (e && e.code) || "unknown"; }
+    // Sent to Claude: the comment carries the answer, so the question leaves the list.
+    // Not sent: the answer waits in the item ("answered") until the session reads it and
+    // deletes it.
     try {
-      await db.collection("items").doc(q.id).update({
-        status: "done", answer: text, doneAt: new Date().toISOString(),
-        delivered: sent === "sent", deliveryError: sent === "sent" ? null : (sendError || sent),
-      });
+      const doc = db.collection("items").doc(q.id);
+      if (sent === "sent") await doc.delete();
+      else await doc.update({ status: "answered", answer: text, answeredAt: new Date().toISOString(), deliveryError: sendError || sent });
     } catch (e) {
       sending.delete(q.id); render();
       notice("Could not save your answer. Check your connection and try again.", true);
